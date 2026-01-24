@@ -1,0 +1,13 @@
+# Archivos de configuración local
+config/database_local.php
+
+# Archivos de IDE
+.idea/
+.vscode/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
