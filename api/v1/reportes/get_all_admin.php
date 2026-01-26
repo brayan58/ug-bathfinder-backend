@@ -54,28 +54,20 @@ $query = "SELECT
             r.fecha_creacion,
             r.fecha_resolucion,
             r.nota_admin,
-            -- Info del baño (puede ser NULL)
+            -- Info del baño
             r.bano_id,
             b.codigo as bano_codigo,
             b.nombre as bano_nombre,
+            b.piso as bano_piso,
             fb.nombre as facultad_nombre,
-            -- Info de la puerta (puede ser NULL)
-            r.puerta_id,
-            p.codigo as puerta_codigo,
-            p.nombre as puerta_nombre,
+            fb.abreviatura as facultad_abreviatura,
             -- Info del usuario que reportó
             u.id as usuario_id,
             u.email as usuario_email,
-            u.nombre_completo as usuario_nombre,
-            -- Campo calculado para saber el tipo de recurso
-            CASE 
-                WHEN r.puerta_id IS NOT NULL THEN 'puerta'
-                ELSE 'bano'
-            END as tipo_recurso
+            u.nombre_completo as usuario_nombre
           FROM reportes r
           LEFT JOIN banos b ON r.bano_id = b.id
           LEFT JOIN facultades fb ON b.facultad_id = fb.id
-          LEFT JOIN puertas p ON r.puerta_id = p.id
           INNER JOIN usuarios u ON r.usuario_id = u.id
           ORDER BY 
             CASE r.urgencia 
@@ -88,12 +80,12 @@ $query = "SELECT
 $stmt = $conn->prepare($query);
 $stmt->execute();
 
-$reportes = $stmt->fetchAll();
+$reportes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 http_response_code(200);
 echo json_encode([
     'success' => true,
     'count' => count($reportes),
     'data' => $reportes
-]);
+], JSON_UNESCAPED_UNICODE);
 ?>

@@ -1,6 +1,5 @@
 <?php
 
-
 require_once '../../config/database.php';
 require_once '../../config/cors.php';
 require_once '../../helpers/jwt_helper.php';
@@ -39,7 +38,7 @@ if (!$conn) {
     exit();
 }
 
-// Query para obtener reportes del usuario con info del baño Y puerta
+// Query para obtener reportes del usuario con info del baño
 $query = "SELECT 
             r.id,
             r.tipo,
@@ -49,37 +48,30 @@ $query = "SELECT
             r.fecha_creacion,
             r.fecha_resolucion,
             r.nota_admin,
-            -- Info del baño (puede ser NULL)
+            -- Info del baño
             r.bano_id,
             b.codigo as bano_codigo,
             b.nombre as bano_nombre,
+            b.piso as bano_piso,
+            b.genero as bano_genero,
             fb.nombre as bano_facultad_nombre,
-            -- Info de la puerta (puede ser NULL)
-            r.puerta_id,
-            p.codigo as puerta_codigo,
-            p.nombre as puerta_nombre,
-            -- Campo calculado para saber el tipo de recurso
-            CASE 
-                WHEN r.puerta_id IS NOT NULL THEN 'puerta'
-                ELSE 'bano'
-            END as tipo_recurso
+            fb.abreviatura as bano_facultad_abreviatura
           FROM reportes r
           LEFT JOIN banos b ON r.bano_id = b.id
           LEFT JOIN facultades fb ON b.facultad_id = fb.id
-          LEFT JOIN puertas p ON r.puerta_id = p.id
           WHERE r.usuario_id = :user_id
           ORDER BY r.fecha_creacion DESC";
 
 $stmt = $conn->prepare($query);
-$stmt->bindParam(':user_id', $user_id);
+$stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
 $stmt->execute();
 
-$reportes = $stmt->fetchAll();
+$reportes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 http_response_code(200);
 echo json_encode([
     'success' => true,
     'count' => count($reportes),
     'data' => $reportes
-]);
+], JSON_UNESCAPED_UNICODE);
 ?>
