@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
             --sidebar-width: 250px;
@@ -104,21 +105,29 @@
             margin-right: 10px;
         }
         
-        .table-actions {
-            display: flex;
-            gap: 5px;
-        }
-        
         .filter-section {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
+
+        .urgencia-select {
+            border: 2px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        .urgencia-select:focus {
+            border-color: #2196F3;
+            box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+        }
+
+        .urgencia-select option {
+            padding: 8px;
+        }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
             <i class="bi bi-map fs-3"></i>
@@ -150,9 +159,7 @@
         </nav>
     </div>
 
-    <!-- Main Content -->
     <div class="main-content">
-        <!-- Topbar -->
         <div class="topbar">
             <div>
                 <h4 class="mb-0">Gestión de Reportes</h4>
@@ -167,9 +174,7 @@
             </div>
         </div>
 
-        <!-- Content -->
         <div class="content-card">
-            <!-- Filtros -->
             <div class="filter-section">
                 <div class="row g-3">
                     <div class="col-md-3">
@@ -240,7 +245,6 @@
         </div>
     </div>
 
-    <!-- Modal Ver Detalle -->
     <div class="modal fade" id="detalleModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -414,9 +418,24 @@
                         <td>${reporte.usuario_email}</td>
                         <td>${formatTipo(reporte.tipo)}</td>
                         <td>
-                            <span class="badge bg-${getUrgenciaColor(reporte.urgencia)}">
-                                ${formatUrgencia(reporte.urgencia)}
-                            </span>
+                            <select 
+                                class="form-select form-select-sm urgencia-select" 
+                                onchange="actualizarUrgencia(${reporte.id}, this.value, '${reporte.bano_nombre}')"
+                                style="min-width: 130px;"
+                            >
+                                <option value="" ${!reporte.urgencia ? 'selected' : ''}>
+                                    Sin asignar
+                                </option>
+                                <option value="baja" ${reporte.urgencia === 'baja' ? 'selected' : ''}>
+                                    🟢 Baja
+                                </option>
+                                <option value="media" ${reporte.urgencia === 'media' ? 'selected' : ''}>
+                                    🟡 Media
+                                </option>
+                                <option value="alta" ${reporte.urgencia === 'alta' ? 'selected' : ''}>
+                                    🔴 Alta
+                                </option>
+                            </select>
                         </td>
                         <td>
                             <span class="badge bg-${getEstadoColor(reporte.estado)}">
@@ -433,10 +452,25 @@
                 `);
             });
             
-            // Inicializar DataTable
+            // Inicializar DataTable 
             $('#reportesTable').DataTable({
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                    "decimal": "",
+                    "emptyTable": "No hay datos disponibles",
+                    "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                    "infoEmpty": "Mostrando 0 a 0 de 0 registros",
+                    "infoFiltered": "(filtrado de _MAX_ registros totales)",
+                    "lengthMenu": "Mostrar _MENU_ registros",
+                    "loadingRecords": "Cargando...",
+                    "processing": "Procesando...",
+                    "search": "Buscar:",
+                    "zeroRecords": "No se encontraron registros coincidentes",
+                    "paginate": {
+                        "first": "Primero",
+                        "last": "Último",
+                        "next": "Siguiente",
+                        "previous": "Anterior"
+                    }
                 },
                 pageLength: 25,
                 order: [[0, 'desc']]
@@ -546,6 +580,7 @@
             }
         }
 
+        // Funciones auxiliares de formato
         function formatTipo(tipo) {
             const tipos = {
                 'limpieza': 'Limpieza',
@@ -560,6 +595,9 @@
         }
 
         function formatUrgencia(urgencia) {
+            if (!urgencia || urgencia === 'null' || urgencia === null) {
+                return 'Sin asignar';
+            }
             const urgencias = {
                 'baja': 'Baja',
                 'media': 'Media',
@@ -579,6 +617,9 @@
         }
 
         function getUrgenciaColor(urgencia) {
+            if (!urgencia || urgencia === 'null' || urgencia === null) {
+                return 'secondary';
+            }
             switch(urgencia) {
                 case 'baja': return 'info';
                 case 'media': return 'warning';
@@ -603,6 +644,158 @@
                 sessionStorage.removeItem('admin_user');
                 window.location.href = 'index.php';
             }
+        }
+
+
+        function actualizarUrgencia(reporteId, urgencia, banoNombre) {
+            if (!urgencia) {
+                alert('Selecciona una urgencia');
+                location.reload();
+                return;
+            }
+            
+            //  Si urgencia es ALTA, mostrar diálogo especial
+            if (urgencia === 'alta') {
+                mostrarDialogoUrgenciaAlta(reporteId, banoNombre);
+            } else {
+                // Para urgencia baja/media, actualizar directamente
+                confirmarActualizacionUrgencia(reporteId, urgencia, false);
+            }
+        }
+
+        function mostrarDialogoUrgenciaAlta(reporteId, banoNombre) {
+            // Crear modal de confirmación
+            const modalHtml = `
+                <div class="modal fade" id="urgenciaAltaModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                    Urgencia Alta Asignada
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-info-circle"></i>
+                                    <strong>Baño:</strong> ${banoNombre || 'Baño seleccionado'}
+                                </div>
+                                <p class="mb-3">
+                                    Has asignado urgencia <strong class="text-danger">ALTA</strong> a este reporte.
+                                </p>
+                                <p class="mb-0">
+                                    ¿Deseas cambiar el estado del baño a <strong class="text-warning">MANTENIMIENTO</strong> automáticamente?
+                                </p>
+                                <small class="text-muted">
+                                    Esto hará que el baño aparezca en naranja en el mapa de la aplicación móvil.
+                                </small>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" onclick="confirmarActualizacionUrgencia(${reporteId}, 'alta', false)">
+                                    <i class="bi bi-x-circle"></i>
+                                    No, solo asignar urgencia
+                                </button>
+                                <button type="button" class="btn btn-danger" onclick="confirmarActualizacionUrgencia(${reporteId}, 'alta', true)">
+                                    <i class="bi bi-check-circle"></i>
+                                    Sí, cambiar a mantenimiento
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Eliminar modal anterior si existe
+            $('#urgenciaAltaModal').remove();
+            
+            // Agregar modal al body
+            $('body').append(modalHtml);
+            
+            // Mostrar modal
+            const modal = new bootstrap.Modal(document.getElementById('urgenciaAltaModal'));
+            modal.show();
+        }
+
+        function confirmarActualizacionUrgencia(reporteId, urgencia, cambiarEstadoBano) {
+            // Cerrar cualquier modal abierto
+            $('#urgenciaAltaModal').modal('hide');
+            
+            // Mostrar loading
+            const loadingToast = Swal.fire({
+                title: 'Actualizando...',
+                html: cambiarEstadoBano 
+                    ? 'Asignando urgencia y cambiando estado del baño...' 
+                    : 'Asignando urgencia...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Hacer petición al servidor
+            fetch(`${API_URL}/reportes/update_urgencia.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + sessionStorage.getItem('admin_token')
+                },
+                body: JSON.stringify({
+                    reporte_id: reporteId,
+                    urgencia: urgencia,
+                    cambiar_estado_bano: cambiarEstadoBano
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingToast.close();
+                
+                if (data.success) {
+                    let mensajeExito = 'Urgencia asignada exitosamente';
+                    
+                    if (data.bano_actualizado) {
+                        mensajeExito = `
+                            <div class="text-center">
+                                <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+                                <h4 class="mt-3">¡Actualización Completa!</h4>
+                                <p class="mb-2"> Urgencia asignada: <strong class="text-danger">ALTA</strong></p>
+                                <p class="mb-0"> Estado del baño: <strong class="text-warning">MANTENIMIENTO</strong></p>
+                                <small class="text-muted d-block mt-2">
+                                    Baño: ${data.bano_nombre}
+                                </small>
+                            </div>
+                        `;
+                    } else if (data.mensaje_adicional) {
+                        mensajeExito += '<br><small class="text-muted">' + data.mensaje_adicional + '</small>';
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: data.bano_actualizado ? '' : 'Urgencia Asignada',
+                        html: mensajeExito,
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#28a745'
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Error al actualizar urgencia',
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+            })
+            .catch(error => {
+                loadingToast.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor: ' + error,
+                    confirmButtonText: 'Entendido'
+                });
+            });
         }
     </script>
 </body>

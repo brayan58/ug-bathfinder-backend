@@ -134,7 +134,6 @@
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
             <i class="bi bi-map fs-3"></i>
@@ -166,9 +165,7 @@
         </nav>
     </div>
 
-    <!-- Main Content -->
     <div class="main-content">
-        <!-- Topbar -->
         <div class="topbar">
             <div>
                 <h4 class="mb-0">Gestión de Baños</h4>
@@ -183,7 +180,6 @@
             </div>
         </div>
 
-        <!-- Content -->
         <div class="content-card">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h5 class="mb-0">
@@ -232,7 +228,6 @@
         </div>
     </div>
 
-    <!-- Modal Cambiar Estado -->
     <div class="modal fade" id="cambiarEstadoModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -375,10 +370,25 @@
                 `);
             });
             
-            // Inicializar DataTable
+            // Inicializar DataTable 
             $('#banosTable').DataTable({
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                    "decimal": "",
+                    "emptyTable": "No hay datos disponibles",
+                    "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                    "infoEmpty": "Mostrando 0 a 0 de 0 registros",
+                    "infoFiltered": "(filtrado de _MAX_ registros totales)",
+                    "lengthMenu": "Mostrar _MENU_ registros",
+                    "loadingRecords": "Cargando...",
+                    "processing": "Procesando...",
+                    "search": "Buscar:",
+                    "zeroRecords": "No se encontraron registros coincidentes",
+                    "paginate": {
+                        "first": "Primero",
+                        "last": "Último",
+                        "next": "Siguiente",
+                        "previous": "Anterior"
+                    }
                 },
                 pageLength: 25,
                 order: [[0, 'asc']]

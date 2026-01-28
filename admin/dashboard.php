@@ -175,7 +175,6 @@
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
             <i class="bi bi-map fs-3"></i>
@@ -207,9 +206,7 @@
         </nav>
     </div>
 
-    <!-- Main Content -->
     <div class="main-content">
-        <!-- Topbar -->
         <div class="topbar">
             <div>
                 <h4 class="mb-0">Dashboard</h4>
@@ -224,7 +221,8 @@
             </div>
         </div>
 
-        <!-- Stats Cards -->
+        <div id="alertContainer"></div>
+
         <div class="row g-3 mb-4">
             <div class="col-md-3">
                 <div class="stat-card primary">
@@ -267,7 +265,6 @@
             </div>
         </div>
 
-        <!-- Recent Reports -->
         <div class="chart-card">
             <h5 class="mb-3">
                 <i class="bi bi-clock-history"></i> Reportes Recientes
@@ -336,7 +333,6 @@
                 
                 const data = await response.json();
                 
-                
                 if (data.success) {
                     
                     document.getElementById('totalBanos').textContent = data.data.banos.total || 0;
@@ -344,13 +340,60 @@
                     document.getElementById('banosMantenimiento').textContent = data.data.banos.mantenimiento || 0;
                     document.getElementById('reportesPendientes').textContent = data.data.reportes.pendientes || 0;
                     
-                    
+                    // Si la API devuelve un array 'banos_criticos', generamos el HTML
+                    if (data.data.banos_criticos && data.data.banos_criticos.length > 0) {
+                        renderCriticalAlert(data.data.banos_criticos);
+                    } else {
+                        document.getElementById('alertContainer').innerHTML = '';
+                    }
+
                 } else {
                     console.error('❌ Error en respuesta:', data.error);
                 }
             } catch (error) {
                 console.error('❌ Error al cargar estadísticas:', error);
             }
+        }
+
+       
+        function renderCriticalAlert(banosCriticos) {
+            const listItems = banosCriticos.map(bano => {
+                const estadoClass = bano.estado === 'disponible' ? 'success' : 
+                                   (bano.estado === 'mantenimiento' ? 'warning' : 'danger');
+                
+                
+                const estadoText = bano.estado.charAt(0).toUpperCase() + bano.estado.slice(1);
+                
+                return `
+                    <li>
+                        <strong>${bano.codigo}</strong> - ${bano.nombre}
+                        (${bano.reportes_pendientes} reportes pendientes)
+                        - Estado actual: 
+                        <span class="badge bg-${estadoClass}">
+                            ${estadoText}
+                        </span>
+                    </li>
+                `;
+            }).join('');
+
+            const html = `
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <h5 class="alert-heading">
+                        <i class="bi bi-exclamation-triangle-fill"></i> 
+                        Atención: Baños con múltiples reportes
+                    </h5>
+                    <p class="mb-2">
+                        Los siguientes baños tienen <strong>3 o más reportes pendientes</strong>. 
+                        Considera cambiarlos a estado "Mantenimiento":
+                    </p>
+                    <ul class="mb-0">
+                        ${listItems}
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            document.getElementById('alertContainer').innerHTML = html;
         }
 
         async function loadRecentReports() {
@@ -362,7 +405,6 @@
                 });
                 
                 const data = await response.json();
-                
                 
                 if (data.success) {
                     const reports = data.data.slice(0, 10); 
@@ -420,7 +462,6 @@
                     </td>
                 </tr>
             `).join('');
-            
         }
 
         function formatTipo(tipo) {

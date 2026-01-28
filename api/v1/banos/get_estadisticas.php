@@ -1,4 +1,6 @@
 <?php
+
+
 require_once '../../config/database.php';
 require_once '../../config/cors.php';
 require_once '../../helpers/jwt_helper.php';
@@ -94,6 +96,23 @@ $stmt_facultad = $conn->prepare($query_por_facultad);
 $stmt_facultad->execute();
 $reportes_por_facultad = $stmt_facultad->fetchAll();
 
+//Baños con 3 o más reportes pendientes
+$query_banos_criticos = "SELECT 
+                           b.id,
+                           b.codigo,
+                           b.nombre,
+                           b.estado,
+                           COUNT(r.id) as reportes_pendientes
+                         FROM banos b
+                         INNER JOIN reportes r ON b.id = r.bano_id
+                         WHERE r.estado = 'pendiente'
+                         GROUP BY b.id
+                         HAVING COUNT(r.id) >= 3
+                         ORDER BY reportes_pendientes DESC";
+$stmt_criticos = $conn->prepare($query_banos_criticos);
+$stmt_criticos->execute();
+$banos_criticos = $stmt_criticos->fetchAll();
+
 http_response_code(200);
 echo json_encode([
     'success' => true,
@@ -102,7 +121,8 @@ echo json_encode([
         'reportes' => $stats_reportes,
         'usuarios' => $stats_usuarios,
         'top_banos_reportados' => $top_reportados,
-        'reportes_por_facultad' => $reportes_por_facultad
+        'reportes_por_facultad' => $reportes_por_facultad,
+        'banos_criticos' => $banos_criticos 
     ]
 ]);
 ?>
