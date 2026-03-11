@@ -2,7 +2,12 @@
 require_once '../../config/database.php';
 require_once '../../config/cors.php';
 require_once '../../helpers/validation.php';
-require_once '../../helpers/jwt_helper.php';
+require_once '../../../libs/src/Exception.php';
+require_once '../../../libs/src/PHPMailer.php';
+require_once '../../../libs/src/SMTP.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Solo aceptar método POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -71,39 +76,80 @@ if ($stmt->rowCount() > 0) {
 
 // Hashear contraseña
 $password_hash = password_hash($data->password, PASSWORD_BCRYPT);
-
-// Insertar usuario CON EL ROL ESPECIFICADO
-$query = "INSERT INTO usuarios (email, password_hash, nombre_completo, rol) 
-          VALUES (:email, :password_hash, :nombre_completo, :rol)";
-$stmt = $conn->prepare($query);
-
 $nombre_completo = isset($data->nombre_completo) ? Validation::sanitizeString($data->nombre_completo) : null;
+
+
+$estado = 'pendiente';
+$codigo_verificacion = sprintf("%06d", mt_rand(1, 999999)); // Código de 6 dígitos
+$expiracion_codigo = date('Y-m-d H:i:s', strtotime('+15 minutes')); // Expira en 15 mins
+
+
+$query = "INSERT INTO usuarios (email, password_hash, nombre_completo, rol, estado, codigo_verificacion, expiracion_codigo) 
+          VALUES (:email, :password_hash, :nombre_completo, :rol, :estado, :codigo_verificacion, :expiracion_codigo)";
+$stmt = $conn->prepare($query);
 
 $stmt->bindParam(':email', $emailValidation['email']);
 $stmt->bindParam(':password_hash', $password_hash);
 $stmt->bindParam(':nombre_completo', $nombre_completo);
 $stmt->bindParam(':rol', $rol);
+$stmt->bindParam(':estado', $estado);
+$stmt->bindParam(':codigo_verificacion', $codigo_verificacion);
+$stmt->bindParam(':expiracion_codigo', $expiracion_codigo);
 
 if ($stmt->execute()) {
-    $user_id = $conn->lastInsertId();
-    
-    // Generar token JWT con el rol correcto
-    $token = JWTHelper::generateToken($user_id, $emailValidation['email'], $rol);
-    
-    http_response_code(201);
-    echo json_encode([
-        'success' => true,
-        'message' => 'Usuario registrado exitosamente',
-        'token' => $token,
-        'user' => [
-            'id' => $user_id,
-            'email' => $emailValidation['email'],
-            'nombre_completo' => $nombre_completo,
-            'rol' => $rol
-        ]
-    ]);
+    // Si se guardó en la BD, procedemos a enviar el correo
+    $mail = new PHPMailer(true);
+
+    try {
+        // Configuración del servidor SMTP
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        
+        
+        $mail->Username   = 'cashless898@gmail.com'; 
+        $mail->Password   = 'ryogrgfnhkfivkep'; 
+        
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        $mail->Port       = 465;
+
+        // Remitente y Destinatario
+        $mail->setFrom('cashless898@gmail.com', 'UG BathFinder');
+        $mail->addAddress($emailValidation['email'], $nombre_completo ?? 'Estudiante');
+
+        // Contenido del correo
+        $mail->isHTML(true);
+        $mail->CharSet = 'UTF-8';
+        $mail->Subject = 'Código de Verificación - UG BathFinder';
+        $mail->Body    = "
+            <div style='font-family: Arial, sans-serif; padding: 20px; color: #333;'>
+                <h2 style='color: #0056b3;'>Hola, " . ($nombre_completo ?? 'Estudiante') . "</h2>
+                <p>Gracias por registrarte en la aplicación <b>UG BathFinder</b>.</p>
+                <p>Para activar tu cuenta, ingresa el siguiente código de verificación en la aplicación:</p>
+                <h1 style='background-color: #f4f4f4; padding: 10px; text-align: center; letter-spacing: 5px; color: #333; border-radius: 5px;'>$codigo_verificacion</h1>
+                <p><i>⚠️ Este código expirará en 15 minutos por tu seguridad.</i></p>
+            </div>
+        ";
+
+        $mail->send();
+        
+        // Respuesta final exitosa
+        http_response_code(201);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Usuario registrado. Se ha enviado un código de verificación a su correo institucional.',
+            'status' => 'pending_verification',
+            'email' => $emailValidation['email'] // Devolvemos el correo para usarlo en la app al validar
+        ]);
+
+    } catch (Exception $e) {
+        // Si falla el correo, el usuario se creó pero no sabrá su código
+        http_response_code(500);
+        echo json_encode(['error' => 'Usuario registrado, pero hubo un error al enviar el correo. Contacte soporte.']);
+    }
+
 } else {
     http_response_code(500);
-    echo json_encode(['error' => 'Error al registrar usuario']);
+    echo json_encode(['error' => 'Error al registrar usuario en la base de datos']);
 }
 ?>

@@ -38,8 +38,8 @@ if (!$conn) {
     exit();
 }
 
-// Buscar usuario por email
-$query = "SELECT id, email, password_hash, nombre_completo, rol 
+// Buscar usuario por email 
+$query = "SELECT id, email, password_hash, nombre_completo, rol, estado 
           FROM usuarios 
           WHERE email = :email 
           LIMIT 1";
@@ -62,7 +62,18 @@ if (!password_verify($data->password, $user['password_hash'])) {
     exit();
 }
 
-// Actualizar último acceso
+//  VERIFICAR SI LA CUENTA ESTÁ ACTIVADA ---
+if ($user['estado'] === 'pendiente') {
+    http_response_code(403); 
+    echo json_encode([
+        'error' => 'Su cuenta aún no ha sido verificada. Revise su correo institucional e ingrese el código de 6 dígitos.',
+        'status' => 'pending_verification',
+        'email' => $user['email'] 
+    ]);
+    exit();
+}
+
+
 $update_query = "UPDATE usuarios SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id = :id";
 $update_stmt = $conn->prepare($update_query);
 $update_stmt->bindParam(':id', $user['id']);
