@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost/ug-bathfinder/api/v1';
+const API_URL = '../api/v1'
 let adminToken = '';
 let adminUser = null;
 
